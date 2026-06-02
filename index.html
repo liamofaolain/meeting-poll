@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Poll</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --border: #d0cec8; --text: #1a1a18;
+    --muted: #6b6960; --yes: #2d6a4f; --yes-bg: #d8f3dc; --no: #9b1c1c;
+    --no-bg: #fde8e8; --ifnec: #7c4d00; --ifnec-bg: #fef3c7;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 900px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; border-bottom: 2px solid var(--text); padding-bottom: 1rem; }
+  header h1 { font-family: var(--mono); font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+  header span { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+  .card { background: var(--surface); border: 1.5px solid var(--border); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; }
+  label { font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 0.3rem; }
+  input[type="text"], input[type="datetime-local"], input[type="number"], textarea {
+    font-family: var(--mono); font-size: 0.85rem; width: 100%;
+    border: 1.5px solid var(--border); background: var(--bg);
+    padding: 0.5rem 0.6rem; outline: none; color: var(--text); transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus { border-color: var(--text); }
+  .field { margin-bottom: 1rem; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem; }
+  button {
+    font-family: var(--mono); font-size: 0.8rem; font-weight: 600;
+    padding: 0.55rem 1.1rem; border: 1.5px solid var(--text);
+    cursor: pointer; background: var(--text); color: #fff;
+    letter-spacing: 0.04em; transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.8; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--text); }
+  button.small { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
+  .slot-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+  .slot-item { display: flex; align-items: center; gap: 0.75rem; background: var(--bg); border: 1px solid var(--border); padding: 0.5rem 0.75rem; font-family: var(--mono); font-size: 0.8rem; }
+  .slot-item span { flex: 1; }
+  .dur { color: var(--muted); font-size: 0.72rem; }
+  .tz-note { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; }
+  .tab-bar { display: flex; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); }
+  .tab { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; padding: 0.55rem 1.2rem; border: none; background: transparent; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+  .vote-table-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 500px; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.6rem; font-size: 0.8rem; text-align: left; white-space: nowrap; }
+  th { font-family: var(--mono); font-weight: 600; background: var(--bg); font-size: 0.72rem; }
+  .slot-date { font-size: 0.7rem; color: var(--muted); display: block; }
+  .vote-cell { text-align: center; padding: 0.3rem; }
+  .vote-btn { font-family: var(--mono); font-size: 0.7rem; padding: 0.25rem 0.5rem; border: 1.5px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+  .vote-btn:hover { border-color: var(--text); color: var(--text); }
+  .vote-btn.active-yes { background: var(--yes-bg); border-color: var(--yes); color: var(--yes); }
+  .vote-btn.active-no { background: var(--no-bg); border-color: var(--no); color: var(--no); }
+  .vote-btn.active-ifnec { background: var(--ifnec-bg); border-color: var(--ifnec); color: var(--ifnec); }
+  .result-row td { background: #fafaf8; font-family: var(--mono); font-size: 0.72rem; }
+  .best-row td { background: #f0f7f3; font-family: var(--mono); font-size: 0.72rem; font-weight: 600; }
+  .score-yes { color: var(--yes); }
+  .score-ifnec { color: var(--ifnec); }
+  .legend { display: flex; gap: 1.2rem; flex-wrap: wrap; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); margin-bottom: 1rem; }
+  .legend span { display: flex; align-items: center; gap: 0.3rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+  .msg { font-family: var(--mono); font-size: 0.78rem; padding: 0.6rem 0.9rem; margin-bottom: 0.75rem; }
+  .msg.ok { background: var(--yes-bg); color: var(--yes); border-left: 3px solid var(--yes); }
+  .msg.err { background: var(--no-bg); color: var(--no); border-left: 3px solid var(--no); }
+  .link-box { font-family: var(--mono); font-size: 0.78rem; background: var(--bg); border: 1.5px dashed var(--border); padding: 0.6rem 0.9rem; word-break: break-all; margin-bottom: 0.75rem; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: var(--text); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #poll-view { display: none; }
+  @media (max-width: 600px) { .row-3 { grid-template-columns: 1fr 1fr; } .row-3 button { grid-column: span 2; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>// meeting poll</h1>
+    <span>simple · secure · no account needed</span>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tab-create" onclick="showTab('create')">Create Poll</button>
+    <button class="tab" id="tab-vote" onclick="showTab('vote')">Vote</button>
+  </div>
+
+  <!-- CREATE -->
+  <div id="create-view">
+    <div class="card">
+      <h2>Poll details</h2>
+      <div class="field">
+        <label>Meeting title</label>
+        <input type="text" id="poll-title" placeholder="e.g. Q3 kickoff" maxlength="120">
+      </div>
+      <div class="field">
+        <label>Description (optional)</label>
+        <textarea id="poll-desc" rows="2" placeholder="Any context for participants" maxlength="400"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Time slots</h2>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem;">
+        Enter times in your local timezone (<span id="local-tz"></span>). Participants see slots in their own timezone.
+      </p>
+      <div class="row-3">
+        <div>
+          <label>Start</label>
+          <input type="datetime-local" id="slot-start">
+        </div>
+        <div>
+          <label>Duration (min)</label>
+          <input type="number" id="slot-dur" value="60" min="5" max="480">
+        </div>
+        <button class="secondary small" onclick="addSlot()">+ Add</button>
+      </div>
+      <div class="slot-list" id="slot-list"></div>
+      <div id="slot-count" class="tz-note"></div>
+    </div>
+
+    <div class="card">
+      <h2>Create</h2>
+      <div id="create-msg"></div>
+      <button id="create-btn" onclick="createPoll()">Create poll →</button>
+    </div>
+  </div>
+
+  <!-- VOTE -->
+  <div id="poll-view">
+    <div class="card">
+      <div id="v-title" style="font-family:var(--mono);font-size:1.1rem;font-weight:600;margin-bottom:0.3rem;"></div>
+      <div id="v-meta" style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;"></div>
+      <div id="v-desc" style="font-size:0.85rem;margin-bottom:1rem;color:var(--muted);"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--yes)"></span>Yes</span>
+        <span><span class="dot" style="background:var(--ifnec)"></span>If necessary</span>
+        <span><span class="dot" style="background:var(--no)"></span>No</span>
+      </div>
+      <div class="vote-table-wrap">
+        <table id="vote-table"></table>
+      </div>
+      <div class="field" style="max-width:260px;margin-bottom:1rem;">
+        <label>Your name</label>
+        <input type="text" id="voter-name" placeholder="First name or nickname" maxlength="40">
+        <div class="tz-note">Only your name is stored — no email, no account.</div>
+      </div>
+      <div id="vote-msg"></div>
+      <div class="actions">
+        <button id="vote-btn" onclick="submitVote()">Submit vote</button>
+        <button class="secondary" onclick="exportCSV()">Export .csv</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://vvvdytzlxpmlvzuqoqdh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2dmR5dHpseHBtbHZ6dXFvcWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzAzMjAsImV4cCI6MjA5NjAwNjMyMH0.6QTtG3tH0SUNBLbRtymPnxcxvmg1nV2QU0FqekJZjCg';
+
+const headers = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY
+};
+
+const localTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+document.getElementById('local-tz').textContent = localTZ;
+
+let slots = [];
+let currentPoll = null;
+let currentVotes = [];
+let myChoices = [];
+
+// ── Formatting ─────────────────────────────────────────────────────────────
+function fmtSlot(iso, tz) {
+  return new Date(iso).toLocaleString('en-GB', {
+    timeZone: tz, weekday: 'short', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+}
+function fmtDur(min) {
+  if (min < 60) return min + ' min';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h + 'h' + (m ? m + 'm' : '');
+}
+function uid() {
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8);
+}
+
+// ── Slots ──────────────────────────────────────────────────────────────────
+function addSlot() {
+  const start = document.getElementById('slot-start').value;
+  const dur = parseInt(document.getElementById('slot-dur').value, 10);
+  if (!start) return showMsg('create-msg', 'Pick a start time.', 'err');
+  if (!dur || dur < 5) return showMsg('create-msg', 'Duration must be ≥ 5 min.', 'err');
+  const iso = new Date(start).toISOString();
+  if (slots.find(s => s.iso === iso)) return showMsg('create-msg', 'Slot already added.', 'err');
+  slots.push({ iso, dur });
+  slots.sort((a, b) => a.iso.localeCompare(b.iso));
+  renderSlotList();
+}
+
+function removeSlot(i) { slots.splice(i, 1); renderSlotList(); }
+
+function renderSlotList() {
+  const el = document.getElementById('slot-list');
+  el.innerHTML = '';
+  slots.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'slot-item';
+    div.innerHTML = `<span>${fmtSlot(s.iso, localTZ)} <span class="dur">(${fmtDur(s.dur)})</span></span>
+      <button class="secondary small" style="border-color:var(--no);color:var(--no)" onclick="removeSlot(${i})">✕</button>`;
+    el.appendChild(div);
+  });
+  document.getElementById('slot-count').textContent = slots.length ? `${slots.length} slot(s)` : '';
+}
+
+// ── Create Poll ────────────────────────────────────────────────────────────
+async function createPoll() {
+  const title = document.getElementById('poll-title').value.trim();
+  const desc = document.getElementById('poll-desc').value.trim();
+  if (!title) return showMsg('create-msg', 'Enter a meeting title.', 'err');
+  if (slots.length < 1) return showMsg('create-msg', 'Add at least one time slot.', 'err');
+
+  const btn = document.getElementById('create-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating…';
+
+  const id = uid();
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/polls`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ id, title, description: desc, slots })
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Create poll →';
+
+  if (!res.ok) {
+    const err = await res.text();
+    return showMsg('create-msg', 'Error creating poll: ' + err, 'err');
+  }
+
+  const url = window.location.href.split('?')[0] + '?poll=' + id;
+  showMsg('create-msg', '✓ Poll created! Share this link:', 'ok');
+  const msgEl = document.getElementById('create-msg');
+  const linkBox = document.createElement('div');
+  linkBox.className = 'link-box';
+  linkBox.textContent = url;
+  msgEl.after(linkBox);
+
+  // Navigate to vote view
+  window.history.pushState({}, '', '?poll=' + id);
+  await loadPoll(id);
+}
+
+// ── Load Poll ──────────────────────────────────────────────────────────────
+async function loadPoll(id) {
+  showTab('vote');
+  document.getElementById('v-title').textContent = '…';
+  document.getElementById('v-meta').textContent = 'Loading';
+
+  const [pollRes, votesRes] = await Promise.all([
+    fetch(`${SUPABASE_URL}/rest/v1/polls?id=eq.${id}&select=*`, { headers }),
+    fetch(`${SUPABASE_URL}/rest/v1/votes?poll_id=eq.${id}&select=*&order=created_at.asc`, { headers })
+  ]);
+
+  if (!pollRes.ok) return showMsg('vote-msg', 'Could not load poll.', 'err');
+
+  const polls = await pollRes.json();
+  if (!polls.length) return showMsg('vote-msg', 'Poll not found.', 'err');
+
+  currentPoll = polls[0];
+  currentVotes = await votesRes.json();
+  myChoices = currentPoll.slots.map(() => 'no');
+
+  document.getElementById('v-title').textContent = currentPoll.title;
+  document.getElementById('v-meta').textContent =
+    `${currentPoll.slots.length} slot(s) · your timezone: ${localTZ}`;
+  document.getElementById('v-desc').textContent = currentPoll.description || '';
+
+  buildVoteTable();
+}
+
+// ── Vote Table ─────────────────────────────────────────────────────────────
+function buildVoteTable() {
+  const table = document.getElementById('vote-table');
+  table.innerHTML = '';
+  const slots = currentPoll.slots;
+
+  // Header
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const nameTh = document.createElement('th');
+  nameTh.textContent = 'Participant';
+  hr.appendChild(nameTh);
+  slots.forEach(s => {
+    const th = document.createElement('th');
+    th.innerHTML = `${fmtSlot(s.iso, localTZ)}<span class="slot-date">${fmtDur(s.dur)}</span>`;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  // Existing votes
+  currentVotes.forEach(v => {
+    const row = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.textContent = v.name;
+    row.appendChild(nameTd);
+    v.choices.forEach(c => {
+      const td = document.createElement('td');
+      td.className = 'vote-cell';
+      td.style.fontFamily = 'var(--mono)';
+      td.style.fontWeight = '600';
+      td.textContent = c === 'yes' ? '✓' : c === 'ifnec' ? '~' : '✗';
+      td.style.color = c === 'yes' ? 'var(--yes)' : c === 'ifnec' ? 'var(--ifnec)' : 'var(--no)';
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+
+  // Input row
+  const inputRow = document.createElement('tr');
+  const inputNameTd = document.createElement('td');
+  inputNameTd.innerHTML = '<em style="color:var(--muted);font-size:0.75rem;">you →</em>';
+  inputRow.appendChild(inputNameTd);
+  slots.forEach((_, i) => {
+    const td = document.createElement('td');
+    td.className = 'vote-cell';
+    td.id = `cell-${i}`;
+    td.innerHTML = renderVoteBtns(i, myChoices[i]);
+    inputRow.appendChild(td);
+  });
+  tbody.appendChild(inputRow);
+
+  // Totals row
+  const totRow = document.createElement('tr');
+  totRow.className = 'result-row';
+  const totTh = document.createElement('td');
+  totTh.innerHTML = '<strong>Totals</strong>';
+  totRow.appendChild(totTh);
+  slots.forEach((_, i) => {
+    const td = document.createElement('td');
+    td.id = `result-${i}`;
+    td.className = 'vote-cell';
+    td.innerHTML = scoreCellHtml(i);
+    totRow.appendChild(td);
+  });
+  tbody.appendChild(totRow);
+
+  // Best slot row
+  const bestRow = document.createElement('tr');
+  bestRow.className = 'best-row';
+  const bestTh = document.createElement('td');
+  bestTh.textContent = 'Best slot';
+  bestRow.appendChild(bestTh);
+  const bestIdx = getBestSlot();
+  slots.forEach((_, i) => {
+    const td = document.createElement('td');
+    td.className = 'vote-cell';
+    td.textContent = i === bestIdx ? '★' : '';
+    td.style.color = 'var(--yes)';
+    bestRow.appendChild(td);
+  });
+  tbody.appendChild(bestRow);
+
+  table.appendChild(tbody);
+}
+
+function renderVoteBtns(i, current) {
+  return [['yes','✓ Yes'],['ifnec','~ If nec.'],['no','✗ No']].map(([val, label]) =>
+    `<button class="vote-btn ${current===val?'active-'+val:''}" onclick="setVote(${i},'${val}')">${label}</button>`
+  ).join(' ');
+}
+
+function setVote(i, val) {
+  myChoices[i] = val;
+  document.getElementById(`cell-${i}`).innerHTML = renderVoteBtns(i, val);
+}
+
+function scoreCellHtml(i) {
+  const yes = currentVotes.filter(v => v.choices[i] === 'yes').length;
+  const ifnec = currentVotes.filter(v => v.choices[i] === 'ifnec').length;
+  return `<span class="score-yes">${yes}✓</span> <span class="score-ifnec">${ifnec}~</span>`;
+}
+
+function getBestSlot() {
+  if (!currentVotes.length) return -1;
+  const slots = currentPoll.slots;
+  let best = -1, bestScore = -1;
+  slots.forEach((_, i) => {
+    const yes = currentVotes.filter(v => v.choices[i] === 'yes').length;
+    const ifnec = currentVotes.filter(v => v.choices[i] === 'ifnec').length;
+    const score = yes * 2 + ifnec;
+    if (score > bestScore) { bestScore = score; best = i; }
+  });
+  return best;
+}
+
+// ── Submit Vote ────────────────────────────────────────────────────────────
+async function submitVote() {
+  const name = document.getElementById('voter-name').value.trim();
+  if (!name) return showMsg('vote-msg', 'Enter your name.', 'err');
+  if (currentVotes.find(v => v.name.toLowerCase() === name.toLowerCase()))
+    return showMsg('vote-msg', `"${name}" has already voted.`, 'err');
+
+  const btn = document.getElementById('vote-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/votes`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ poll_id: currentPoll.id, name, choices: myChoices })
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Submit vote';
+
+  if (!res.ok) return showMsg('vote-msg', 'Error saving vote.', 'err');
+
+  currentVotes.push({ name, choices: [...myChoices] });
+  myChoices = currentPoll.slots.map(() => 'no');
+  document.getElementById('voter-name').value = '';
+  buildVoteTable();
+  showMsg('vote-msg', '✓ Vote recorded.', 'ok');
+}
+
+// ── Export CSV ─────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!currentPoll) return;
+  const slots = currentPoll.slots;
+  const headers2 = ['Participant', ...slots.map(s => fmtSlot(s.iso, localTZ) + ' (' + fmtDur(s.dur) + ')')];
+  const rows = currentVotes.map(v => [v.name, ...v.choices.map(c => c === 'yes' ? 'Yes' : c === 'ifnec' ? 'If necessary' : 'No')]);
+  const yes = slots.map((_, i) => currentVotes.filter(v => v.choices[i] === 'yes').length);
+  const ifnec = slots.map((_, i) => currentVotes.filter(v => v.choices[i] === 'ifnec').length);
+  const combined = slots.map((_, i) => yes[i] * 2 + ifnec[i]);
+  const max = Math.max(...combined);
+  const best = slots.map((_, i) => combined[i] === max && max > 0 ? '★ Best' : '');
+  rows.push(['YES count', ...yes]);
+  rows.push(['IF NECESSARY count', ...ifnec]);
+  rows.push(['Best slot', ...best]);
+
+  const csv = [headers2, ...rows].map(r =>
+    r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (currentPoll.title || 'meeting-poll').replace(/\s+/g, '-') + '.csv';
+  a.click();
+}
+
+// ── Tabs & Routing ─────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.getElementById('create-view').style.display = tab === 'create' ? '' : 'none';
+  document.getElementById('poll-view').style.display = tab === 'vote' ? '' : 'none';
+  document.getElementById('tab-create').classList.toggle('active', tab === 'create');
+  document.getElementById('tab-vote').classList.toggle('active', tab === 'vote');
+}
+
+function showMsg(id, text, type) {
+  document.getElementById(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+}
+
+// Init
+const params = new URLSearchParams(window.location.search);
+const pollId = params.get('poll');
+if (pollId) {
+  showTab('vote');
+  loadPoll(pollId);
+} else {
+  showTab('create');
+}
+</script>
+</body>
+</html>
