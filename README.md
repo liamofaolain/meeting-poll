@@ -1,4 +1,4 @@
-# Meeting Poll
+# Meeting Poll 2
 
 A simple, no-nonsense meeting scheduler. No accounts, no tracking — participants enter only their name.
 
