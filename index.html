@@ -72,7 +72,7 @@
   .link-box { font-family: var(--mono); font-size: 0.78rem; background: var(--bg); border: 1.5px dashed var(--border); padding: 0.6rem 0.9rem; word-break: break-all; margin-bottom: 0.75rem; }
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: var(--text); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #poll-view { display: block; }
+  .hidden { display: none !important; }
   @media (max-width: 600px) { .row-3 { grid-template-columns: 1fr 1fr; } .row-3 button { grid-column: span 2; } }
 </style>
 </head>
@@ -130,7 +130,7 @@
   </div>
 
   <!-- VOTE -->
-  <div id="poll-view">
+  <div id="poll-view" class="hidden">
     <div class="card">
       <div id="v-title" style="font-family:var(--mono);font-size:1.1rem;font-weight:600;margin-bottom:0.3rem;"></div>
       <div id="v-meta" style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;"></div>
@@ -461,14 +461,23 @@ function exportCSV() {
 
 // ── Tabs & Routing ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  document.querySelector('#create-view').style.display = tab === 'create' ? 'block' : 'none';
-  document.querySelector('#poll-view').style.display = tab === 'vote' ? 'block' : 'none';
-  document.querySelector('#tab-create').classList.toggle('active', tab === 'create');
-  document.querySelector('#tab-vote').classList.toggle('active', tab === 'vote');
+  var cv = document.getElementById('create-view');
+  var pv = document.getElementById('poll-view');
+  if (tab === 'create') {
+    cv.classList.remove('hidden');
+    pv.classList.add('hidden');
+    document.getElementById('tab-create').classList.add('active');
+    document.getElementById('tab-vote').classList.remove('active');
+  } else {
+    cv.classList.add('hidden');
+    pv.classList.remove('hidden');
+    document.getElementById('tab-create').classList.remove('active');
+    document.getElementById('tab-vote').classList.add('active');
+  }
 }
 
 function showMsg(id, text, type) {
-  document.querySelector('#' + id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+  document.getElementById(id).innerHTML = '<div class="msg ' + type + '">' + text + '</div>';
 }
 
 // Init
