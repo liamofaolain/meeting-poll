@@ -48,7 +48,7 @@
   .tab { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; padding: 0.55rem 1.2rem; border: none; background: transparent; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; }
   .tab.active { color: var(--text); border-bottom-color: var(--text); }
   .vote-table-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
-  table { border-collapse: collapse; width: 100%; min-width: 500px; }
+  table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--border); padding: 0.5rem 0.6rem; font-size: 0.8rem; text-align: left; white-space: nowrap; }
   th { font-family: var(--mono); font-weight: 600; background: var(--bg); font-size: 0.72rem; }
   .slot-date { font-size: 0.7rem; color: var(--muted); display: block; }
@@ -286,35 +286,64 @@ async function loadPoll(id) {
   buildVoteTable();
 }
 
-// ── Vote Table ─────────────────────────────────────────────────────────────
+// ── Vote Table (transposed: slots as rows, participants as columns) ──────────
 function buildVoteTable() {
   const table = document.getElementById('vote-table');
   table.innerHTML = '';
   const slots = currentPoll.slots;
+  const bestIdx = getBestSlot();
 
-  // Header
+  // Header row: Time slot | participant names... | Totals
   const thead = document.createElement('thead');
   const hr = document.createElement('tr');
-  const nameTh = document.createElement('th');
-  nameTh.textContent = 'Participant';
-  hr.appendChild(nameTh);
-  slots.forEach(s => {
+  const slotTh = document.createElement('th');
+  slotTh.textContent = 'Time slot';
+  hr.appendChild(slotTh);
+  const durTh = document.createElement('th');
+  durTh.textContent = 'Duration';
+  hr.appendChild(durTh);
+  currentVotes.forEach(v => {
     const th = document.createElement('th');
-    th.innerHTML = `${fmtSlot(s.iso, localTZ)}<span class="slot-date">${fmtDur(s.dur)}</span>`;
+    th.style.fontFamily = 'var(--sans)';
+    th.textContent = v.name;
     hr.appendChild(th);
   });
+  // "You" column header
+  const youTh = document.createElement('th');
+  youTh.innerHTML = '<em style="color:var(--muted)">you</em>';
+  hr.appendChild(youTh);
+  // Totals header
+  const totTh = document.createElement('th');
+  totTh.textContent = 'Yes / If nec.';
+  hr.appendChild(totTh);
   thead.appendChild(hr);
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
 
-  // Existing votes
-  currentVotes.forEach(v => {
+  // One row per slot
+  slots.forEach((s, i) => {
     const row = document.createElement('tr');
-    const nameTd = document.createElement('td');
-    nameTd.textContent = v.name;
-    row.appendChild(nameTd);
-    v.choices.forEach(c => {
+    if (i === bestIdx) row.className = 'best-row';
+
+    // Slot datetime
+    const slotTd = document.createElement('td');
+    slotTd.style.fontFamily = 'var(--mono)';
+    slotTd.style.fontSize = '0.78rem';
+    slotTd.textContent = fmtSlot(s.iso, localTZ);
+    row.appendChild(slotTd);
+
+    // Duration
+    const durTd = document.createElement('td');
+    durTd.style.fontFamily = 'var(--mono)';
+    durTd.style.fontSize = '0.72rem';
+    durTd.style.color = 'var(--muted)';
+    durTd.textContent = fmtDur(s.dur);
+    row.appendChild(durTd);
+
+    // Each participant's vote
+    currentVotes.forEach(v => {
+      const c = v.choices[i];
       const td = document.createElement('td');
       td.className = 'vote-cell';
       td.style.fontFamily = 'var(--mono)';
@@ -323,53 +352,23 @@ function buildVoteTable() {
       td.style.color = c === 'yes' ? 'var(--yes)' : c === 'ifnec' ? 'var(--ifnec)' : 'var(--no)';
       row.appendChild(td);
     });
+
+    // Your vote input
+    const inputTd = document.createElement('td');
+    inputTd.className = 'vote-cell';
+    inputTd.id = 'cell-' + i;
+    inputTd.innerHTML = renderVoteBtns(i, myChoices[i]);
+    row.appendChild(inputTd);
+
+    // Totals
+    const totTd = document.createElement('td');
+    totTd.id = 'result-' + i;
+    totTd.className = 'vote-cell';
+    totTd.innerHTML = scoreCellHtml(i) + (i === bestIdx ? ' <span style="color:var(--yes)">★</span>' : '');
+    row.appendChild(totTd);
+
     tbody.appendChild(row);
   });
-
-  // Input row
-  const inputRow = document.createElement('tr');
-  const inputNameTd = document.createElement('td');
-  inputNameTd.innerHTML = '<em style="color:var(--muted);font-size:0.75rem;">you →</em>';
-  inputRow.appendChild(inputNameTd);
-  slots.forEach((_, i) => {
-    const td = document.createElement('td');
-    td.className = 'vote-cell';
-    td.id = `cell-${i}`;
-    td.innerHTML = renderVoteBtns(i, myChoices[i]);
-    inputRow.appendChild(td);
-  });
-  tbody.appendChild(inputRow);
-
-  // Totals row
-  const totRow = document.createElement('tr');
-  totRow.className = 'result-row';
-  const totTh = document.createElement('td');
-  totTh.innerHTML = '<strong>Totals</strong>';
-  totRow.appendChild(totTh);
-  slots.forEach((_, i) => {
-    const td = document.createElement('td');
-    td.id = `result-${i}`;
-    td.className = 'vote-cell';
-    td.innerHTML = scoreCellHtml(i);
-    totRow.appendChild(td);
-  });
-  tbody.appendChild(totRow);
-
-  // Best slot row
-  const bestRow = document.createElement('tr');
-  bestRow.className = 'best-row';
-  const bestTh = document.createElement('td');
-  bestTh.textContent = 'Best slot';
-  bestRow.appendChild(bestTh);
-  const bestIdx = getBestSlot();
-  slots.forEach((_, i) => {
-    const td = document.createElement('td');
-    td.className = 'vote-cell';
-    td.textContent = i === bestIdx ? '★' : '';
-    td.style.color = 'var(--yes)';
-    bestRow.appendChild(td);
-  });
-  tbody.appendChild(bestRow);
 
   table.appendChild(tbody);
 }
@@ -443,7 +442,7 @@ function exportCSV() {
   const ifnec = slots.map((_, i) => currentVotes.filter(v => v.choices[i] === 'ifnec').length);
   const combined = slots.map((_, i) => yes[i] * 2 + ifnec[i]);
   const max = Math.max(...combined);
-  const best = slots.map((_, i) => combined[i] === max && max > 0 ? '★ Best' : '');
+  const best = slots.map((_, i) => combined[i] === max && max > 0 ? 'BEST' : '');
   rows.push(['YES count', ...yes]);
   rows.push(['IF NECESSARY count', ...ifnec]);
   rows.push(['Best slot', ...best]);
@@ -452,7 +451,8 @@ function exportCSV() {
     r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')
   ).join('\r\n');
 
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = (currentPoll.title || 'meeting-poll').replace(/\s+/g, '-') + '.csv';
