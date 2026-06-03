@@ -79,7 +79,7 @@
 <body>
 <div class="container">
   <header>
-    <h1>// Meeting Poll</h1>
+    <h1>// meeting poll</h1>
     <span>simple · secure · no account needed</span>
   </header>
 
@@ -461,25 +461,27 @@ function exportCSV() {
 
 // ── Tabs & Routing ─────────────────────────────────────────────────────────
 function showTab(tab) {
-  document.getElementById('create-view').style.display = tab === 'create' ? '' : 'none';
-  document.getElementById('poll-view').style.display = tab === 'vote' ? '' : 'none';
-  document.getElementById('tab-create').classList.toggle('active', tab === 'create');
-  document.getElementById('tab-vote').classList.toggle('active', tab === 'vote');
+  document.querySelector('#create-view').style.display = tab === 'create' ? '' : 'none';
+  document.querySelector('#poll-view').style.display = tab === 'vote' ? '' : 'none';
+  document.querySelector('#tab-create').classList.toggle('active', tab === 'create');
+  document.querySelector('#tab-vote').classList.toggle('active', tab === 'vote');
 }
 
 function showMsg(id, text, type) {
-  document.getElementById(id).innerHTML = `<div class="msg ${type}">${text}</div>`;
+  document.querySelector('#' + id).innerHTML = `<div class="msg ${type}">${text}</div>`;
 }
 
 // Init
-const params = new URLSearchParams(window.location.search);
-const pollId = params.get('poll');
-if (pollId) {
-  showTab('vote');
-  loadPoll(pollId);
-} else {
-  showTab('create');
-}
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const pollId = params.get('poll');
+  if (pollId) {
+    showTab('vote');
+    loadPoll(pollId);
+  } else {
+    showTab('create');
+  }
+});
 </script>
 </body>
 </html>
