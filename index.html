@@ -79,8 +79,8 @@
 <body>
 <div class="container">
   <header>
-    <h1>Meeting poll</h1>
-    <span>Simple · Secure · No account needed</span>
+    <h1>// meeting poll</h1>
+    <span>simple · secure · no account needed</span>
   </header>
 
   <div class="tab-bar">
@@ -317,7 +317,7 @@ function buildVoteTable() {
   }
   // "You" column header
   const youTh = document.createElement('th');
-  youTh.innerHTML = '<em style="color:var(--muted)">Vote</em>';
+  youTh.textContent = 'Your vote';
   hr.appendChild(youTh);
   // Totals header
   const totTh = document.createElement('th');
