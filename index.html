@@ -245,16 +245,15 @@ async function createPoll() {
     return showMsg('create-msg', 'Error creating poll: ' + err, 'err');
   }
 
+  const orgCode = uid();
   const url = window.location.href.split('?')[0] + '?poll=' + id;
-  showMsg('create-msg', '✓ Poll created! Share this link:', 'ok');
+  const orgUrl = window.location.href.split('?')[0] + '?poll=' + id + '&org=' + orgCode;
+  showMsg('create-msg', '✓ Poll created!', 'ok');
   const msgEl = document.getElementById('create-msg');
-  const linkBox = document.createElement('div');
-  linkBox.className = 'link-box';
-  linkBox.textContent = url;
-  msgEl.after(linkBox);
+  msgEl.innerHTML += '<div style="margin-top:0.75rem;"><div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem;">Share with participants:</div><div class="link-box" style="margin-bottom:0.5rem;">' + url + '</div><div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.2rem;">Your organiser link (keep private — lets you delete votes):</div><div class="link-box" style="border-color:var(--ifnec);">' + orgUrl + '</div></div>';
 
-  // Navigate to vote view
-  window.history.pushState({}, '', '?poll=' + id);
+  // Navigate to vote view with org code
+  window.history.pushState({}, '', '?poll=' + id + '&org=' + orgCode);
   await loadPoll(id);
 }
 
@@ -263,6 +262,8 @@ async function loadPoll(id) {
   showTab('vote');
   document.getElementById('v-title').textContent = '…';
   document.getElementById('v-meta').textContent = 'Loading';
+  const orgCode = new URLSearchParams(window.location.search).get('org');
+  window._isOrganiser = !!orgCode;
 
   const [pollRes, votesRes] = await Promise.all([
     fetch(`${SUPABASE_URL}/rest/v1/polls?id=eq.${id}&select=*`, { headers }),
@@ -308,6 +309,12 @@ function buildVoteTable() {
     th.textContent = v.name;
     hr.appendChild(th);
   });
+  // Delete column header (organiser only)
+  if (window._isOrganiser) {
+    const delTh = document.createElement('th');
+    delTh.textContent = 'Delete';
+    hr.appendChild(delTh);
+  }
   // "You" column header
   const youTh = document.createElement('th');
   youTh.innerHTML = '<em style="color:var(--muted)">you</em>';
@@ -320,6 +327,35 @@ function buildVoteTable() {
   table.appendChild(thead);
 
   const tbody = document.createElement('tbody');
+
+  // Organiser delete row
+  if (window._isOrganiser && currentVotes.length) {
+    const delRow = document.createElement('tr');
+    delRow.style.background = '#fff8f0';
+    const delLabelTd = document.createElement('td');
+    delLabelTd.colSpan = 2;
+    delLabelTd.innerHTML = '<span style="font-family:var(--mono);font-size:0.72rem;color:var(--muted)">organiser</span>';
+    delRow.appendChild(delLabelTd);
+    currentVotes.forEach((v, vi) => {
+      const td = document.createElement('td');
+      td.className = 'vote-cell';
+      const btn = document.createElement('button');
+      btn.className = 'secondary small';
+      btn.style.borderColor = 'var(--no)';
+      btn.style.color = 'var(--no)';
+      btn.style.fontSize = '0.7rem';
+      btn.textContent = 'Delete ' + v.name;
+      btn.onclick = function() { deleteVote(vi); };
+      td.appendChild(btn);
+      delRow.appendChild(td);
+    });
+    // Empty cells for you + totals columns
+    const emptyTd = document.createElement('td');
+    delRow.appendChild(emptyTd);
+    const emptyTd2 = document.createElement('td');
+    delRow.appendChild(emptyTd2);
+    tbody.appendChild(delRow);
+  }
 
   // One row per slot
   slots.forEach((s, i) => {
@@ -403,12 +439,26 @@ function getBestSlot() {
   return best;
 }
 
+// ── Delete Vote (organiser only) ──────────────────────────────────────────
+async function deleteVote(vi) {
+  const v = currentVotes[vi];
+  if (!confirm('Delete vote from "' + v.name + '"?')) return;
+  const res = await fetch(SUPABASE_URL + '/rest/v1/votes?poll_id=eq.' + currentPoll.id + '&name=eq.' + encodeURIComponent(v.name), {
+    method: 'DELETE',
+    headers: Object.assign({}, headers)
+  });
+  if (!res.ok) return showMsg('vote-msg', 'Error deleting vote.', 'err');
+  currentVotes.splice(vi, 1);
+  myChoices = currentPoll.slots.map(function() { return 'no'; });
+  buildVoteTable();
+  showMsg('vote-msg', 'Vote from "' + v.name + '" deleted.', 'ok');
+}
+
 // ── Submit Vote ────────────────────────────────────────────────────────────
 async function submitVote() {
   const name = document.getElementById('voter-name').value.trim();
   if (!name) return showMsg('vote-msg', 'Enter your name.', 'err');
-  if (currentVotes.find(v => v.name.toLowerCase() === name.toLowerCase()))
-    return showMsg('vote-msg', `"${name}" has already voted.`, 'err');
+
 
   const btn = document.getElementById('vote-btn');
   btn.disabled = true;
