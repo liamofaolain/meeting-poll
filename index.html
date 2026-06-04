@@ -473,7 +473,13 @@ async function submitVote() {
   btn.disabled = false;
   btn.textContent = 'Submit vote';
 
-  if (!res.ok) return showMsg('vote-msg', 'Error saving vote.', 'err');
+  if (!res.ok) {
+    const errText = await res.text();
+    if (errText.includes('unique_vote') || errText.includes('duplicate')) {
+      return showMsg('vote-msg', '"' + name + '" has already voted. Ask the organiser to delete it first if you need to re-vote.', 'err');
+    }
+    return showMsg('vote-msg', 'Error saving vote.', 'err');
+  }
 
   currentVotes.push({ name, choices: [...myChoices] });
   myChoices = currentPoll.slots.map(() => 'no');
