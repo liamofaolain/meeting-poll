@@ -79,7 +79,7 @@
 <body>
 <div class="container">
   <header>
-    <h1>// meeting poll</h1>
+    <h1>Meeting Poll</h1>
     <span>simple · secure · no account needed</span>
   </header>
 
@@ -131,6 +131,7 @@
 
   <!-- VOTE -->
   <div id="poll-view" class="hidden">
+    <div id="v-banner" style="font-size:0.9rem;background:#fff;border:1.5px solid var(--border);padding:1rem 1.5rem;margin-bottom:1rem;line-height:1.6;"></div>
     <div class="card">
       <div id="v-title" style="font-family:var(--mono);font-size:1.1rem;font-weight:600;margin-bottom:0.3rem;"></div>
       <div id="v-meta" style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-bottom:0.5rem;"></div>
@@ -146,7 +147,9 @@
       <div class="field" style="max-width:260px;margin-bottom:1rem;">
         <label>Your name</label>
         <input type="text" id="voter-name" placeholder="First name or nickname" maxlength="40">
-        <div class="tz-note">Only your name is stored — no email, no account.</div>
+        <div style="font-family:var(--mono);font-size:0.75rem;margin-top:0.4rem;padding:0.5rem 0.7rem;background:var(--yes-bg);color:var(--yes);border-left:3px solid var(--yes);">
+          Your name is the only information collected. No email, no account, no tracking.
+        </div>
       </div>
       <div id="vote-msg"></div>
       <div class="actions">
@@ -155,6 +158,9 @@
       </div>
     </div>
   </div>
+  <footer style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);text-align:center;padding:2rem 0 1rem;border-top:1px solid var(--border);margin-top:1rem;">
+    Built by William Whelan-Curtin &nbsp;·&nbsp; Hosted on GitHub Pages &nbsp;·&nbsp; Data stored in Supabase &nbsp;·&nbsp; No tracking
+  </footer>
 </div>
 
 <script>
