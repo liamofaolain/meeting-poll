@@ -297,13 +297,14 @@ const SUPABASE_URL = 'https://vvvdytzlxpmlvzuqoqdh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2dmR5dHpseHBtbHZ6dXFvcWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzAzMjAsImV4cCI6MjA5NjAwNjMyMH0.6QTtG3tH0SUNBLbRtymPnxcxvmg1nV2QU0FqekJZjCg';
 const SB = { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
 
-// ── Passwords (edit this section to add/remove projects) ───────────────────
-const ORGANISER_PASSWORD = 'Wh3el#Kp9mX2$vN';
-// Projects are stored in Supabase but passwords live here
-// Format: { 'project-name-lowercase': 'password' }
-// Add entries here when you add a project via the Manage Projects screen
-let PROJECT_PASSWORDS = {};
-// Example: PROJECT_PASSWORDS['cancer-screening'] = 'mypassword123';
+// ── Password hashing ────────────────────────────────────────────────────────
+// Passwords are stored as SHA-256 hashes in Supabase (tracker_passwords table).
+// No plaintext passwords appear in this file.
+async function hashPassword(password) {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 let currentRole = null; // 'organiser' or 'project'
@@ -311,6 +312,7 @@ let currentProjectId = null;
 let currentProjectName = null;
 let allActions = [];
 let allProjects = [];
+let passwordLabels = new Set();
 let editingActionId = null;
 let commentingActionId = null;
 let allComments = {};
@@ -387,26 +389,39 @@ async function initLogin() {
   });
 }
 
-function doLogin() {
+async function doLogin() {
   const pw = document.getElementById('login-password').value;
+  if (!pw) return showMsg('login-msg', 'Enter a password.', 'err');
+
+  let label, project;
   if (selectedLoginTarget === 'organiser') {
-    if (pw !== ORGANISER_PASSWORD) return showMsg('login-msg', 'Incorrect password.', 'err');
-    currentRole = 'organiser';
-    currentProjectId = null;
-    currentProjectName = 'All projects';
+    label = 'organiser';
   } else {
-    const project = allProjects.find(function(p) { return p.id === selectedLoginTarget; });
+    project = allProjects.find(function(p) { return p.id === selectedLoginTarget; });
     if (!project) return showMsg('login-msg', 'Project not found.', 'err');
-    const slug = slugify(project.name);
-    if (!PROJECT_PASSWORDS[slug] || pw !== PROJECT_PASSWORDS[slug]) {
-      return showMsg('login-msg', 'Incorrect password.', 'err');
-    }
-    currentRole = 'project';
-    currentProjectId = project.id;
-    currentProjectName = project.name;
+    label = slugify(project.name);
   }
-  document.getElementById('login-password').value = '';
-  enterApp();
+
+  try {
+    const hash = await hashPassword(pw);
+    const res = await sbFetch('tracker_passwords?label=eq.' + encodeURIComponent(label) + '&password_hash=eq.' + encodeURIComponent(hash));
+    const rows = res.ok ? await res.json() : [];
+    if (!rows.length) return showMsg('login-msg', 'Incorrect password.', 'err');
+
+    if (selectedLoginTarget === 'organiser') {
+      currentRole = 'organiser';
+      currentProjectId = null;
+      currentProjectName = 'All projects';
+    } else {
+      currentRole = 'project';
+      currentProjectId = project.id;
+      currentProjectName = project.name;
+    }
+    document.getElementById('login-password').value = '';
+    enterApp();
+  } catch(e) {
+    showMsg('login-msg', 'Login error. Please try again.', 'err');
+  }
 }
 
 function doLogout() {
@@ -450,6 +465,7 @@ async function enterApp() {
 
   await loadActions();
   await loadComments();
+  await loadPasswordLabels();
   renderTable();
 }
 
@@ -476,6 +492,14 @@ async function loadComments() {
       if (!allComments[c.action_id]) allComments[c.action_id] = [];
       allComments[c.action_id].push(c);
     });
+  }
+}
+
+async function loadPasswordLabels() {
+  const res = await sbFetch('tracker_passwords?select=label');
+  if (res.ok) {
+    const rows = await res.json();
+    passwordLabels = new Set(rows.map(function(r) { return r.label; }));
   }
 }
 
@@ -589,7 +613,7 @@ function renderProjectList() {
   el.innerHTML = '';
   allProjects.forEach(function(p) {
     const slug = slugify(p.name);
-    const hasPw = PROJECT_PASSWORDS[slug] ? '✓ password set' : '⚠ no password set';
+    const hasPw = passwordLabels.has(slug) ? '✓ password set' : '⚠ no password set';
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.82rem;';
     div.innerHTML = '<span style="flex:1;font-family:var(--mono);">' + escHtml(p.name) + '</span>' +
@@ -614,9 +638,22 @@ async function addProject() {
   const rows = await res.json();
   const newProject = rows[0];
   allProjects.push(newProject);
-  PROJECT_PASSWORDS[slugify(name)] = pass;
 
-  showMsg('proj-msg', '✓ Project added. IMPORTANT: Add this to the PROJECT_PASSWORDS section in actions.html before closing: PROJECT_PASSWORDS[\'' + slugify(name) + '\'] = \'' + pass + '\';', 'ok');
+  const hash = await hashPassword(pass);
+  const slug = slugify(name);
+  const pwRes = await sbFetch('tracker_passwords', {
+    method: 'POST',
+    headers: Object.assign({}, SB, { 'Prefer': 'return=minimal' }),
+    body: JSON.stringify({ label: slug, password_hash: hash })
+  });
+
+  if (!pwRes.ok) {
+    showMsg('proj-msg', 'Project added but password could not be saved. Delete and try again.', 'err');
+  } else {
+    passwordLabels.add(slug);
+    showMsg('proj-msg', '✓ Project "' + name + '" added.', 'ok');
+  }
+
   document.getElementById('new-proj-name').value = '';
   document.getElementById('new-proj-pass').value = '';
   renderProjectList();
@@ -631,8 +668,11 @@ async function addProject() {
 async function deleteProject(id) {
   const proj = allProjects.find(function(p) { return p.id === id; });
   if (!confirm('Delete project "' + proj.name + '"? All actions in this project will also be deleted.')) return;
+  const slug = slugify(proj.name);
   await sbFetch('tracker_actions?project_id=eq.' + id, { method: 'DELETE', headers: SB });
   await sbFetch('tracker_projects?id=eq.' + id, { method: 'DELETE', headers: SB });
+  await sbFetch('tracker_passwords?label=eq.' + encodeURIComponent(slug), { method: 'DELETE', headers: SB });
+  passwordLabels.delete(slug);
   allProjects = allProjects.filter(function(p) { return p.id !== id; });
   allActions = allActions.filter(function(a) { return a.project_id !== id; });
   renderProjectList();
