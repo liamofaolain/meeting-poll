@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Action Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0; --surface: #ffffff; --border: #d0cec8; --text: #1a1a18;
+    --muted: #6b6960; --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+    --on-track: #2d6a4f; --on-track-bg: #d8f3dc;
+    --at-risk: #7c4d00; --at-risk-bg: #fef3c7;
+    --blocked: #9b1c1c; --blocked-bg: #fde8e8;
+    --done: #4b5563; --done-bg: #f3f4f6;
+    --discontinued: #9ca3af; --discontinued-bg: #f9fafb;
+  }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid var(--text); padding-bottom: 1rem; }
+  header h1 { font-family: var(--mono); font-size: 1.4rem; font-weight: 600; letter-spacing: -0.02em; }
+  header span { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+
+  /* Login */
+  .login-wrap { max-width: 380px; margin: 4rem auto; }
+  .login-wrap h2 { font-family: var(--mono); font-size: 1rem; margin-bottom: 1.5rem; }
+  .login-project-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .login-project-btn { font-family: var(--mono); font-size: 0.85rem; padding: 0.6rem 1rem; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; transition: border-color 0.15s; }
+  .login-project-btn:hover { border-color: var(--text); }
+  .login-project-btn.selected { border-color: var(--text); background: var(--text); color: #fff; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1.5px solid var(--border); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .card h2 { font-family: var(--mono); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 1rem; }
+
+  /* Form elements */
+  label { font-size: 0.82rem; font-weight: 500; display: block; margin-bottom: 0.25rem; }
+  input[type="text"], input[type="date"], input[type="password"], select, textarea {
+    font-family: var(--mono); font-size: 0.82rem; width: 100%;
+    border: 1.5px solid var(--border); background: var(--bg);
+    padding: 0.45rem 0.6rem; outline: none; color: var(--text); transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--text); }
+  .field { margin-bottom: 0.85rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0.75rem; }
+
+  /* Buttons */
+  button {
+    font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+    padding: 0.5rem 1rem; border: 1.5px solid var(--text);
+    cursor: pointer; background: var(--text); color: #fff;
+    letter-spacing: 0.04em; transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.8; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--text); }
+  button.danger { background: var(--blocked); border-color: var(--blocked); color: #fff; }
+  button.small { padding: 0.3rem 0.65rem; font-size: 0.72rem; }
+  .btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; }
+
+  /* Toolbar */
+  .toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .toolbar select { width: auto; font-size: 0.78rem; padding: 0.4rem 0.6rem; }
+  .toolbar input[type="text"] { width: 200px; font-size: 0.78rem; padding: 0.4rem 0.6rem; }
+  .toolbar label { margin: 0; font-size: 0.78rem; display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+
+  /* Action table */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+  th { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; background: var(--bg); padding: 0.5rem 0.6rem; border: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { background: #ece9e3; }
+  th .sort-arrow { margin-left: 0.3rem; color: var(--muted); }
+  td { padding: 0.5rem 0.6rem; border: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: #fafaf8; }
+  tr.discontinued td { opacity: 0.5; }
+  tr.done td { opacity: 0.75; }
+
+  /* Status badges */
+  .badge {
+    font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+    padding: 0.2rem 0.5rem; white-space: nowrap; display: inline-block;
+  }
+  .badge-on-track { background: var(--on-track-bg); color: var(--on-track); }
+  .badge-at-risk { background: var(--at-risk-bg); color: var(--at-risk); }
+  .badge-blocked { background: var(--blocked-bg); color: var(--blocked); }
+  .badge-done { background: var(--done-bg); color: var(--done); }
+  .badge-discontinued { background: var(--discontinued-bg); color: var(--discontinued); }
+
+  /* Due date colouring */
+  .overdue { color: var(--blocked); font-weight: 600; }
+  .due-soon { color: var(--at-risk); font-weight: 600; }
+
+  /* Comments panel */
+  .comments-panel { background: #fafaf8; border-top: 1px solid var(--border); padding: 0.75rem 1rem; }
+  .comment-entry { font-family: var(--mono); font-size: 0.72rem; margin-bottom: 0.4rem; line-height: 1.5; }
+  .comment-meta { color: var(--muted); margin-right: 0.5rem; }
+  .comment-input-row { display: flex; gap: 0.5rem; margin-top: 0.6rem; align-items: flex-start; }
+  .comment-input-row input[type="text"] { width: 60px; flex-shrink: 0; }
+  .comment-input-row textarea { flex: 1; min-height: 36px; resize: vertical; font-size: 0.78rem; }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--surface); border: 2px solid var(--text); padding: 1.5rem; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.25rem; }
+  .hidden { display: none !important; }
+
+  /* Msg */
+  .msg { font-family: var(--mono); font-size: 0.75rem; padding: 0.5rem 0.8rem; margin-bottom: 0.75rem; }
+  .msg.ok { background: var(--on-track-bg); color: var(--on-track); border-left: 3px solid var(--on-track); }
+  .msg.err { background: var(--blocked-bg); color: var(--blocked); border-left: 3px solid var(--blocked); }
+
+  /* Nav */
+  .nav { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+  .nav-label { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); margin-right: 0.5rem; }
+
+  footer { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); text-align: center; padding: 2rem 0 1rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .toolbar input[type="text"] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Action Tracker</h1>
+    <span id="header-context">simple · secure · no account needed</span>
+  </header>
+
+  <!-- LOGIN VIEW -->
+  <div id="login-view">
+    <div class="login-wrap">
+      <h2>Sign in</h2>
+      <div id="login-msg"></div>
+      <div class="field">
+        <label>Select access</label>
+        <div class="login-project-list" id="login-project-list"></div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button onclick="doLogin()">Enter →</button>
+    </div>
+  </div>
+
+  <!-- MAIN VIEW -->
+  <div id="main-view" class="hidden">
+    <div class="nav">
+      <span class="nav-label" id="nav-label"></span>
+      <button class="secondary small" onclick="doLogout()">Sign out</button>
+      <span style="flex:1"></span>
+      <button id="btn-new-action" class="small hidden" onclick="openNewAction()">+ New action</button>
+      <button id="btn-manage-projects" class="secondary small hidden" onclick="showManageProjects()">Manage projects</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <select id="filter-project" onchange="renderTable()">
+        <option value="">All projects</option>
+      </select>
+      <select id="filter-status" onchange="renderTable()">
+        <option value="">All statuses</option>
+        <option value="on-track">On track</option>
+        <option value="at-risk">At risk</option>
+        <option value="blocked">Blocked</option>
+        <option value="done">Done</option>
+        <option value="discontinued">Discontinued</option>
+      </select>
+      <select id="sort-by" onchange="renderTable()">
+        <option value="id">Sort: ID</option>
+        <option value="due_date">Sort: Due date</option>
+        <option value="project">Sort: Project</option>
+        <option value="owner">Sort: Owner</option>
+        <option value="status">Sort: Status</option>
+      </select>
+      <select id="sort-dir" onchange="renderTable()">
+        <option value="asc">Ascending</option>
+        <option value="desc">Descending</option>
+      </select>
+      <label><input type="checkbox" id="show-inactive" onchange="renderTable()"> Show done &amp; discontinued</label>
+      <input type="text" id="search-text" placeholder="Search..." oninput="renderTable()">
+    </div>
+
+    <div id="table-msg"></div>
+    <div class="table-wrap">
+      <table id="action-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Project</th>
+            <th>Title</th>
+            <th>Owner</th>
+            <th>Due date</th>
+            <th>Status</th>
+            <th>Comments</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="action-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MANAGE PROJECTS (organiser only) -->
+  <div id="projects-view" class="hidden">
+    <div class="nav">
+      <button class="secondary small" onclick="showMain()">← Back to actions</button>
+    </div>
+    <div class="card">
+      <h2>Projects</h2>
+      <div id="project-list-mgmt"></div>
+      <div style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem;">
+        <h2>Add project</h2>
+        <div class="grid-2">
+          <div class="field"><label>Project name</label><input type="text" id="new-proj-name" placeholder="e.g. Cancer Screening"></div>
+          <div class="field"><label>Project password</label><input type="password" id="new-proj-pass" placeholder="Set a password"></div>
+        </div>
+        <div id="proj-msg"></div>
+        <button onclick="addProject()">Add project</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Built by William Whelan-Curtin &nbsp;·&nbsp; Hosted on GitHub Pages &nbsp;·&nbsp; Data stored in Supabase &nbsp;·&nbsp; No tracking</footer>
+</div>
+
+<!-- NEW/EDIT ACTION MODAL -->
+<div id="action-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="modal-title">New Action</h3>
+    <div id="modal-msg"></div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Project</label>
+        <select id="m-project"></select>
+      </div>
+      <div class="field">
+        <label>Owner</label>
+        <input type="text" id="m-owner" placeholder="Name" maxlength="60">
+      </div>
+    </div>
+    <div class="field">
+      <label>Title / description</label>
+      <textarea id="m-title" rows="2" maxlength="400" placeholder="What needs to be done"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Due date</label>
+        <input type="date" id="m-due">
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="m-status">
+          <option value="on-track">On track</option>
+          <option value="at-risk">At risk</option>
+          <option value="blocked">Blocked</option>
+          <option value="done">Done</option>
+          <option value="discontinued">Discontinued</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button onclick="saveAction()">Save</button>
+      <button class="secondary" onclick="closeModal()">Cancel</button>
+      <button class="danger small hidden" id="btn-delete-action" onclick="deleteAction()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMMENTS MODAL -->
+<div id="comments-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3 id="comments-modal-title">Comments</h3>
+    <div id="comments-list" style="margin-bottom:1rem;max-height:300px;overflow-y:auto;"></div>
+    <div id="comment-input-area">
+      <div class="comment-input-row">
+        <div><label style="font-size:0.72rem;">Initials</label><input type="text" id="c-initials" maxlength="5" placeholder="WW"></div>
+        <div style="flex:1"><label style="font-size:0.72rem;">Comment</label><textarea id="c-text" rows="2" placeholder="Add a comment..." maxlength="1000"></textarea></div>
+      </div>
+      <div id="comments-msg"></div>
+      <div class="btn-row">
+        <button onclick="submitComment()">Add comment</button>
+        <button class="secondary" onclick="closeCommentsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://vvvdytzlxpmlvzuqoqdh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2dmR5dHpseHBtbHZ6dXFvcWRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0MzAzMjAsImV4cCI6MjA5NjAwNjMyMH0.6QTtG3tH0SUNBLbRtymPnxcxvmg1nV2QU0FqekJZjCg';
+const SB = { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+
+// ── Passwords (edit this section to add/remove projects) ───────────────────
+const ORGANISER_PASSWORD = 'Wh3el#Kp9mX2$vN';
+// Projects are stored in Supabase but passwords live here
+// Format: { 'project-name-lowercase': 'password' }
+// Add entries here when you add a project via the Manage Projects screen
+let PROJECT_PASSWORDS = {};
+// Example: PROJECT_PASSWORDS['cancer-screening'] = 'mypassword123';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let currentRole = null; // 'organiser' or 'project'
+let currentProjectId = null;
+let currentProjectName = null;
+let allActions = [];
+let allProjects = [];
+let editingActionId = null;
+let commentingActionId = null;
+let allComments = {};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function sbFetch(path, opts) {
+  return fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({ headers: SB }, opts));
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function dateClass(iso, status) {
+  if (!iso || status === 'done' || status === 'discontinued') return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(iso + 'T00:00:00');
+  const diff = (due - today) / 86400000;
+  if (diff < 0) return 'overdue';
+  if (diff <= 3) return 'due-soon';
+  return '';
+}
+
+function statusBadge(s) {
+  const map = {
+    'on-track': ['On track', 'on-track'],
+    'at-risk': ['At risk', 'at-risk'],
+    'blocked': ['Blocked', 'blocked'],
+    'done': ['Done', 'done'],
+    'discontinued': ['Discontinued', 'discontinued']
+  };
+  const [label, cls] = map[s] || [s, 'done'];
+  return '<span class="badge badge-' + cls + '">' + label + '</span>';
+}
+
+function showMsg(id, text, type) {
+  document.getElementById(id).innerHTML = '<div class="msg ' + type + '">' + text + '</div>';
+}
+
+function slugify(name) {
+  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────
+let selectedLoginTarget = 'organiser';
+
+async function initLogin() {
+  await loadProjects();
+  const list = document.getElementById('login-project-list');
+  list.innerHTML = '';
+
+  const orgBtn = document.createElement('button');
+  orgBtn.className = 'login-project-btn selected';
+  orgBtn.textContent = 'Organiser';
+  orgBtn.onclick = function() {
+    selectedLoginTarget = 'organiser';
+    document.querySelectorAll('.login-project-btn').forEach(b => b.classList.remove('selected'));
+    orgBtn.classList.add('selected');
+  };
+  list.appendChild(orgBtn);
+
+  allProjects.forEach(function(p) {
+    const btn = document.createElement('button');
+    btn.className = 'login-project-btn';
+    btn.textContent = p.name;
+    btn.onclick = function() {
+      selectedLoginTarget = p.id;
+      document.querySelectorAll('.login-project-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+    list.appendChild(btn);
+  });
+}
+
+function doLogin() {
+  const pw = document.getElementById('login-password').value;
+  if (selectedLoginTarget === 'organiser') {
+    if (pw !== ORGANISER_PASSWORD) return showMsg('login-msg', 'Incorrect password.', 'err');
+    currentRole = 'organiser';
+    currentProjectId = null;
+    currentProjectName = 'All projects';
+  } else {
+    const project = allProjects.find(function(p) { return p.id === selectedLoginTarget; });
+    if (!project) return showMsg('login-msg', 'Project not found.', 'err');
+    const slug = slugify(project.name);
+    if (!PROJECT_PASSWORDS[slug] || pw !== PROJECT_PASSWORDS[slug]) {
+      return showMsg('login-msg', 'Incorrect password.', 'err');
+    }
+    currentRole = 'project';
+    currentProjectId = project.id;
+    currentProjectName = project.name;
+  }
+  document.getElementById('login-password').value = '';
+  enterApp();
+}
+
+function doLogout() {
+  currentRole = null; currentProjectId = null; currentProjectName = null;
+  allActions = []; allComments = {};
+  document.getElementById('login-view').classList.remove('hidden');
+  document.getElementById('main-view').classList.add('hidden');
+  document.getElementById('projects-view').classList.add('hidden');
+  document.getElementById('header-context').textContent = 'simple · secure · no account needed';
+  initLogin();
+}
+
+// ── App entry ──────────────────────────────────────────────────────────────
+async function enterApp() {
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('main-view').classList.remove('hidden');
+  document.getElementById('projects-view').classList.add('hidden');
+  document.getElementById('nav-label').textContent = currentRole === 'organiser' ? 'Organiser view' : currentProjectName;
+  document.getElementById('header-context').textContent = currentRole === 'organiser' ? 'Organiser' : currentProjectName;
+
+  if (currentRole === 'organiser') {
+    document.getElementById('btn-new-action').classList.remove('hidden');
+    document.getElementById('btn-manage-projects').classList.remove('hidden');
+  } else {
+    document.getElementById('btn-new-action').classList.add('hidden');
+    document.getElementById('btn-manage-projects').classList.add('hidden');
+  }
+
+  // Populate project filter
+  const sel = document.getElementById('filter-project');
+  sel.innerHTML = '<option value="">All projects</option>';
+  allProjects.forEach(function(p) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    sel.appendChild(o);
+  });
+  if (currentRole === 'project') {
+    sel.value = currentProjectId;
+    sel.disabled = true;
+  }
+
+  await loadActions();
+  await loadComments();
+  renderTable();
+}
+
+// ── Data loading ───────────────────────────────────────────────────────────
+async function loadProjects() {
+  const res = await sbFetch('tracker_projects?select=*&order=name.asc');
+  if (res.ok) allProjects = await res.json();
+}
+
+async function loadActions() {
+  let url = 'tracker_actions?select=*&order=id.asc';
+  if (currentRole === 'project') url += '&project_id=eq.' + currentProjectId;
+  const res = await sbFetch(url);
+  if (res.ok) allActions = await res.json();
+}
+
+async function loadComments() {
+  let url = 'tracker_comments?select=*&order=created_at.asc';
+  const res = await sbFetch(url);
+  if (res.ok) {
+    const rows = await res.json();
+    allComments = {};
+    rows.forEach(function(c) {
+      if (!allComments[c.action_id]) allComments[c.action_id] = [];
+      allComments[c.action_id].push(c);
+    });
+  }
+}
+
+// ── Table rendering ────────────────────────────────────────────────────────
+function renderTable() {
+  const filterProject = document.getElementById('filter-project').value;
+  const filterStatus = document.getElementById('filter-status').value;
+  const showInactive = document.getElementById('show-inactive').checked;
+  const sortBy = document.getElementById('sort-by').value;
+  const sortDir = document.getElementById('sort-dir').value;
+  const search = document.getElementById('search-text').value.toLowerCase();
+
+  let rows = allActions.slice();
+
+  if (currentRole === 'project') rows = rows.filter(function(a) { return a.project_id === currentProjectId; });
+  if (filterProject) rows = rows.filter(function(a) { return a.project_id === filterProject; });
+  if (filterStatus) rows = rows.filter(function(a) { return a.status === filterStatus; });
+  if (!showInactive) rows = rows.filter(function(a) { return a.status !== 'done' && a.status !== 'discontinued'; });
+  if (search) rows = rows.filter(function(a) {
+    const proj = (allProjects.find(function(p) { return p.id === a.project_id; }) || {}).name || '';
+    return (a.title + ' ' + a.owner + ' ' + proj).toLowerCase().includes(search);
+  });
+
+  rows.sort(function(a, b) {
+    let av, bv;
+    if (sortBy === 'id') { av = a.id; bv = b.id; }
+    else if (sortBy === 'due_date') { av = a.due_date || '9999'; bv = b.due_date || '9999'; }
+    else if (sortBy === 'project') {
+      av = (allProjects.find(function(p) { return p.id === a.project_id; }) || {}).name || '';
+      bv = (allProjects.find(function(p) { return p.id === b.project_id; }) || {}).name || '';
+    }
+    else if (sortBy === 'owner') { av = a.owner || ''; bv = b.owner || ''; }
+    else if (sortBy === 'status') { av = a.status; bv = b.status; }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const tbody = document.getElementById('action-tbody');
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);font-family:var(--mono);font-size:0.78rem;padding:1.5rem;">No actions found.</td></tr>';
+    return;
+  }
+
+  rows.forEach(function(a) {
+    const proj = (allProjects.find(function(p) { return p.id === a.project_id; }) || {}).name || '—';
+    const comments = allComments[a.id] || [];
+    const dc = dateClass(a.due_date, a.status);
+    const isOrg = currentRole === 'organiser';
+
+    const tr = document.createElement('tr');
+    if (a.status === 'discontinued') tr.className = 'discontinued';
+    else if (a.status === 'done') tr.className = 'done';
+
+    tr.innerHTML =
+      '<td style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);">#' + a.id + '</td>' +
+      '<td style="font-size:0.78rem;">' + proj + '</td>' +
+      '<td style="max-width:280px;white-space:normal;">' + escHtml(a.title) + '</td>' +
+      '<td style="font-size:0.78rem;">' + escHtml(a.owner || '—') + '</td>' +
+      '<td style="font-family:var(--mono);font-size:0.75rem;" class="' + dc + '">' + fmtDate(a.due_date) + '</td>' +
+      '<td>' + statusBadge(a.status) + '</td>' +
+      '<td class="vote-cell" style="min-width:120px;">' + renderCommentsSummary(a.id, comments) + '</td>' +
+      '<td style="white-space:nowrap;">' + renderRowActions(a, isOrg) + '</td>';
+
+    tbody.appendChild(tr);
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderCommentsSummary(id, comments) {
+  if (!comments.length) return '<span style="color:var(--muted);font-size:0.72rem;font-family:var(--mono);">none</span>';
+  const last = comments[comments.length - 1];
+  const preview = last.text.length > 40 ? last.text.slice(0, 40) + '…' : last.text;
+  return '<span style="font-family:var(--mono);font-size:0.72rem;">' +
+    '<span style="color:var(--muted)">' + last.initials + ' · </span>' + escHtml(preview) +
+    '</span>';
+}
+
+function renderRowActions(a, isOrg) {
+  let html = '<button class="secondary small" onclick="openComments(' + a.id + ')">Comments (' + (allComments[a.id] || []).length + ')</button> ';
+  if (isOrg) {
+    html += '<button class="secondary small" onclick="openEditAction(' + a.id + ')">Edit</button>';
+  } else {
+    if (a.status !== 'blocked' && a.status !== 'done' && a.status !== 'discontinued') {
+      html += '<button class="secondary small" style="border-color:var(--blocked);color:var(--blocked)" onclick="markBlocked(' + a.id + ')">Mark blocked</button>';
+    }
+  }
+  return html;
+}
+
+// ── Projects management ────────────────────────────────────────────────────
+function showManageProjects() {
+  document.getElementById('main-view').classList.add('hidden');
+  document.getElementById('projects-view').classList.remove('hidden');
+  renderProjectList();
+}
+
+function showMain() {
+  document.getElementById('projects-view').classList.add('hidden');
+  document.getElementById('main-view').classList.remove('hidden');
+}
+
+function renderProjectList() {
+  const el = document.getElementById('project-list-mgmt');
+  if (!allProjects.length) { el.innerHTML = '<p style="font-size:0.82rem;color:var(--muted);">No projects yet.</p>'; return; }
+  el.innerHTML = '';
+  allProjects.forEach(function(p) {
+    const slug = slugify(p.name);
+    const hasPw = PROJECT_PASSWORDS[slug] ? '✓ password set' : '⚠ no password set';
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.82rem;';
+    div.innerHTML = '<span style="flex:1;font-family:var(--mono);">' + escHtml(p.name) + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);">' + hasPw + '</span>' +
+      '<button class="danger small" onclick="deleteProject(\'' + p.id + '\')">Delete</button>';
+    el.appendChild(div);
+  });
+}
+
+async function addProject() {
+  const name = document.getElementById('new-proj-name').value.trim();
+  const pass = document.getElementById('new-proj-pass').value;
+  if (!name) return showMsg('proj-msg', 'Enter a project name.', 'err');
+  if (!pass) return showMsg('proj-msg', 'Enter a password.', 'err');
+
+  const res = await sbFetch('tracker_projects', {
+    method: 'POST',
+    headers: Object.assign({}, SB, { 'Prefer': 'return=representation' }),
+    body: JSON.stringify({ name: name })
+  });
+  if (!res.ok) return showMsg('proj-msg', 'Error adding project.', 'err');
+  const rows = await res.json();
+  const newProject = rows[0];
+  allProjects.push(newProject);
+  PROJECT_PASSWORDS[slugify(name)] = pass;
+
+  showMsg('proj-msg', '✓ Project added. IMPORTANT: Add this to the PROJECT_PASSWORDS section in actions.html before closing: PROJECT_PASSWORDS[\'' + slugify(name) + '\'] = \'' + pass + '\';', 'ok');
+  document.getElementById('new-proj-name').value = '';
+  document.getElementById('new-proj-pass').value = '';
+  renderProjectList();
+
+  // Update project filter
+  const sel = document.getElementById('filter-project');
+  const o = document.createElement('option');
+  o.value = newProject.id; o.textContent = name;
+  sel.appendChild(o);
+}
+
+async function deleteProject(id) {
+  const proj = allProjects.find(function(p) { return p.id === id; });
+  if (!confirm('Delete project "' + proj.name + '"? All actions in this project will also be deleted.')) return;
+  await sbFetch('tracker_actions?project_id=eq.' + id, { method: 'DELETE', headers: SB });
+  await sbFetch('tracker_projects?id=eq.' + id, { method: 'DELETE', headers: SB });
+  allProjects = allProjects.filter(function(p) { return p.id !== id; });
+  allActions = allActions.filter(function(a) { return a.project_id !== id; });
+  renderProjectList();
+  renderTable();
+}
+
+// ── New / Edit action ──────────────────────────────────────────────────────
+function openNewAction() {
+  editingActionId = null;
+  document.getElementById('modal-title').textContent = 'New Action';
+  document.getElementById('m-project').innerHTML = '';
+  allProjects.forEach(function(p) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    document.getElementById('m-project').appendChild(o);
+  });
+  document.getElementById('m-owner').value = '';
+  document.getElementById('m-title').value = '';
+  document.getElementById('m-due').value = '';
+  document.getElementById('m-status').value = 'on-track';
+  document.getElementById('btn-delete-action').classList.add('hidden');
+  document.getElementById('modal-msg').innerHTML = '';
+  document.getElementById('action-modal').classList.remove('hidden');
+}
+
+function openEditAction(id) {
+  const a = allActions.find(function(x) { return x.id === id; });
+  if (!a) return;
+  editingActionId = id;
+  document.getElementById('modal-title').textContent = 'Edit Action #' + id;
+  document.getElementById('m-project').innerHTML = '';
+  allProjects.forEach(function(p) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = p.name;
+    document.getElementById('m-project').appendChild(o);
+  });
+  document.getElementById('m-project').value = a.project_id;
+  document.getElementById('m-owner').value = a.owner || '';
+  document.getElementById('m-title').value = a.title;
+  document.getElementById('m-due').value = a.due_date || '';
+  document.getElementById('m-status').value = a.status;
+  document.getElementById('btn-delete-action').classList.remove('hidden');
+  document.getElementById('modal-msg').innerHTML = '';
+  document.getElementById('action-modal').classList.remove('hidden');
+}
+
+async function saveAction() {
+  const project_id = document.getElementById('m-project').value;
+  const owner = document.getElementById('m-owner').value.trim();
+  const title = document.getElementById('m-title').value.trim();
+  const due_date = document.getElementById('m-due').value || null;
+  const status = document.getElementById('m-status').value;
+  if (!title) return showMsg('modal-msg', 'Enter a title.', 'err');
+  if (!project_id) return showMsg('modal-msg', 'Select a project.', 'err');
+
+  if (editingActionId) {
+    const res = await sbFetch('tracker_actions?id=eq.' + editingActionId, {
+      method: 'PATCH',
+      headers: Object.assign({}, SB, { 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({ project_id, owner, title, due_date, status })
+    });
+    if (!res.ok) return showMsg('modal-msg', 'Error saving.', 'err');
+    const idx = allActions.findIndex(function(a) { return a.id === editingActionId; });
+    if (idx >= 0) Object.assign(allActions[idx], { project_id, owner, title, due_date, status });
+  } else {
+    const res = await sbFetch('tracker_actions', {
+      method: 'POST',
+      headers: Object.assign({}, SB, { 'Prefer': 'return=representation' }),
+      body: JSON.stringify({ project_id, owner, title, due_date, status })
+    });
+    if (!res.ok) return showMsg('modal-msg', 'Error saving.', 'err');
+    const rows = await res.json();
+    allActions.push(rows[0]);
+  }
+  closeModal();
+  renderTable();
+}
+
+async function deleteAction() {
+  if (!editingActionId) return;
+  if (!confirm('Delete action #' + editingActionId + '? This cannot be undone.')) return;
+  await sbFetch('tracker_comments?action_id=eq.' + editingActionId, { method: 'DELETE', headers: SB });
+  await sbFetch('tracker_actions?id=eq.' + editingActionId, { method: 'DELETE', headers: SB });
+  allActions = allActions.filter(function(a) { return a.id !== editingActionId; });
+  delete allComments[editingActionId];
+  closeModal();
+  renderTable();
+}
+
+async function markBlocked(id) {
+  if (!confirm('Mark action #' + id + ' as Blocked?')) return;
+  const res = await sbFetch('tracker_actions?id=eq.' + id, {
+    method: 'PATCH',
+    headers: Object.assign({}, SB, { 'Prefer': 'return=minimal' }),
+    body: JSON.stringify({ status: 'blocked' })
+  });
+  if (!res.ok) return showMsg('table-msg', 'Error updating status.', 'err');
+  const idx = allActions.findIndex(function(a) { return a.id === id; });
+  if (idx >= 0) allActions[idx].status = 'blocked';
+  renderTable();
+}
+
+function closeModal() {
+  document.getElementById('action-modal').classList.add('hidden');
+  editingActionId = null;
+}
+
+// ── Comments ───────────────────────────────────────────────────────────────
+function openComments(id) {
+  commentingActionId = id;
+  const a = allActions.find(function(x) { return x.id === id; });
+  document.getElementById('comments-modal-title').textContent = 'Comments — Action #' + id + (a ? ': ' + a.title.slice(0, 40) : '');
+  renderCommentsList();
+  document.getElementById('comments-modal').classList.remove('hidden');
+}
+
+function renderCommentsList() {
+  const comments = allComments[commentingActionId] || [];
+  const el = document.getElementById('comments-list');
+  if (!comments.length) {
+    el.innerHTML = '<p style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);">No comments yet.</p>';
+    return;
+  }
+  el.innerHTML = '';
+  comments.forEach(function(c, ci) {
+    const div = document.createElement('div');
+    div.className = 'comment-entry';
+    const date = new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    div.innerHTML = '<span class="comment-meta">' + escHtml(c.initials) + ' · ' + date + '</span>' + escHtml(c.text);
+    if (currentRole === 'organiser') {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'secondary small danger';
+      delBtn.style.cssText = 'margin-left:0.5rem;font-size:0.65rem;padding:0.15rem 0.4rem;';
+      delBtn.textContent = '✕';
+      delBtn.onclick = function() { deleteComment(c.id, ci); };
+      div.appendChild(delBtn);
+    }
+    el.appendChild(div);
+  });
+}
+
+async function submitComment() {
+  const initials = document.getElementById('c-initials').value.trim().toUpperCase();
+  const text = document.getElementById('c-text').value.trim();
+  if (!initials) return showMsg('comments-msg', 'Enter your initials.', 'err');
+  if (!text) return showMsg('comments-msg', 'Enter a comment.', 'err');
+
+  const res = await sbFetch('tracker_comments', {
+    method: 'POST',
+    headers: Object.assign({}, SB, { 'Prefer': 'return=representation' }),
+    body: JSON.stringify({ action_id: commentingActionId, initials, text })
+  });
+  if (!res.ok) return showMsg('comments-msg', 'Error saving comment.', 'err');
+  const rows = await res.json();
+  if (!allComments[commentingActionId]) allComments[commentingActionId] = [];
+  allComments[commentingActionId].push(rows[0]);
+  document.getElementById('c-initials').value = '';
+  document.getElementById('c-text').value = '';
+  document.getElementById('comments-msg').innerHTML = '';
+  renderCommentsList();
+  renderTable();
+}
+
+async function deleteComment(id, ci) {
+  if (!confirm('Delete this comment?')) return;
+  await sbFetch('tracker_comments?id=eq.' + id, { method: 'DELETE', headers: SB });
+  allComments[commentingActionId].splice(ci, 1);
+  renderCommentsList();
+  renderTable();
+}
+
+function closeCommentsModal() {
+  document.getElementById('comments-modal').classList.add('hidden');
+  commentingActionId = null;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+initLogin();
+</script>
+</body>
+</html>
