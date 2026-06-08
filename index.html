@@ -309,18 +309,22 @@ function buildVoteTable() {
   const durTh = document.createElement('th');
   durTh.textContent = 'Duration';
   hr.appendChild(durTh);
-  currentVotes.forEach(v => {
+ 
+currentVotes.forEach((v, vi) => {
     const th = document.createElement('th');
     th.style.fontFamily = 'var(--sans)';
     th.textContent = v.name;
+    if (window._isOrganiser) {
+        const btn = document.createElement('button');
+        btn.className = 'secondary small';
+        btn.style.cssText = 'border-color:var(--no);color:var(--no);font-size:0.7rem;display:block;margin:4px auto 0';
+        btn.textContent = 'Delete';
+        btn.onclick = function() { deleteVote(vi); };
+        th.appendChild(btn);
+    }
     hr.appendChild(th);
-  });
-  // Delete column header (organiser only)
-  if (window._isOrganiser) {
-    const delTh = document.createElement('th');
-    delTh.textContent = 'Delete';
-    hr.appendChild(delTh);
-  }
+});
+
   // "You" column header
   const youTh = document.createElement('th');
   youTh.textContent = 'Your vote';
@@ -335,26 +339,7 @@ function buildVoteTable() {
   const tbody = document.createElement('tbody');
 
   // Organiser delete row
-  if (window._isOrganiser && currentVotes.length) {
-    const delRow = document.createElement('tr');
-    delRow.style.background = '#fff8f0';
-    const delLabelTd = document.createElement('td');
-    delLabelTd.colSpan = 2;
-    delLabelTd.innerHTML = '<span style="font-family:var(--mono);font-size:0.72rem;color:var(--muted)">organiser</span>';
-    delRow.appendChild(delLabelTd);
-    currentVotes.forEach((v, vi) => {
-      const td = document.createElement('td');
-      td.className = 'vote-cell';
-      const btn = document.createElement('button');
-      btn.className = 'secondary small';
-      btn.style.borderColor = 'var(--no)';
-      btn.style.color = 'var(--no)';
-      btn.style.fontSize = '0.7rem';
-      btn.textContent = 'Delete ' + v.name;
-      btn.onclick = function() { deleteVote(vi); };
-      td.appendChild(btn);
-      delRow.appendChild(td);
-    });
+  
     // Empty cells for you + totals columns
     const emptyTd = document.createElement('td');
     delRow.appendChild(emptyTd);
