@@ -309,22 +309,20 @@ function buildVoteTable() {
   const durTh = document.createElement('th');
   durTh.textContent = 'Duration';
   hr.appendChild(durTh);
- 
-currentVotes.forEach((v, vi) => {
+  currentVotes.forEach((v, vi) => {
     const th = document.createElement('th');
     th.style.fontFamily = 'var(--sans)';
     th.textContent = v.name;
     if (window._isOrganiser) {
-        const btn = document.createElement('button');
-        btn.className = 'secondary small';
-        btn.style.cssText = 'border-color:var(--no);color:var(--no);font-size:0.7rem;display:block;margin:4px auto 0';
-        btn.textContent = 'Delete';
-        btn.onclick = function() { deleteVote(vi); };
-        th.appendChild(btn);
+      const btn = document.createElement('button');
+      btn.className = 'secondary small';
+      btn.style.cssText = 'border-color:var(--no);color:var(--no);font-size:0.7rem;display:block;margin:4px auto 0';
+      btn.textContent = 'Delete';
+      btn.onclick = function() { deleteVote(vi); };
+      th.appendChild(btn);
     }
     hr.appendChild(th);
-});
-
+  });
   // "You" column header
   const youTh = document.createElement('th');
   youTh.textContent = 'Your vote';
@@ -338,15 +336,7 @@ currentVotes.forEach((v, vi) => {
 
   const tbody = document.createElement('tbody');
 
-  // Organiser delete row
-  
-    // Empty cells for you + totals columns
-    const emptyTd = document.createElement('td');
-    delRow.appendChild(emptyTd);
-    const emptyTd2 = document.createElement('td');
-    delRow.appendChild(emptyTd2);
-    tbody.appendChild(delRow);
-  }
+
 
   // One row per slot
   slots.forEach((s, i) => {
