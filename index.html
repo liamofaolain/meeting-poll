@@ -316,7 +316,11 @@ function buildVoteTable() {
     if (window._isOrganiser) {
       const btn = document.createElement('button');
       btn.className = 'secondary small';
-      btn.style.cssText = 'border-color:var(--no);color:var(--no);font-size:0.7rem;display:block;margin:4px auto 0';
+      btn.style.borderColor = 'var(--no)';
+      btn.style.color = 'var(--no)';
+      btn.style.fontSize = '0.7rem';
+      btn.style.display = 'block';
+      btn.style.marginTop = '4px';
       btn.textContent = 'Delete';
       btn.onclick = function() { deleteVote(vi); };
       th.appendChild(btn);
