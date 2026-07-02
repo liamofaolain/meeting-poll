@@ -80,7 +80,6 @@
 <div class="container">
   <header>
     <h1>Meeting Poll</h1>
-    <span>simple · secure · no account needed</span>
   </header>
 
   <div class="tab-bar">
@@ -90,6 +89,17 @@
 
   <!-- CREATE -->
   <div id="create-view">
+    <div id="create-gate" class="card">
+      <h2>Organiser access</h2>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="create-password" placeholder="Enter password"
+               onkeydown="if(event.key==='Enter')checkCreatePassword()">
+      </div>
+      <div id="gate-msg"></div>
+      <button onclick="checkCreatePassword()">Continue →</button>
+    </div>
+    <div id="create-form" class="hidden">
     <div class="card">
       <h2>Poll details</h2>
       <div class="field">
@@ -127,6 +137,7 @@
       <div id="create-msg"></div>
       <button id="create-btn" onclick="createPoll()">Create poll →</button>
     </div>
+    </div><!-- /create-form -->
   </div>
 
   <!-- VOTE -->
@@ -522,10 +533,29 @@ function showMsg(id, text, type) {
 }
 
 // Init
+// ── Create password ───────────────────────────────────────────────────────
+const CREATE_PW_HASH = 'f33d1c3e2565efacc4f692d92d0e587e0ac0cb49b6370be136efefaa7b10b403';
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function checkCreatePassword() {
+  const pw = document.getElementById('create-password').value;
+  if (!pw) return showMsg('gate-msg', 'Enter the password.', 'err');
+  const hash = await sha256(pw);
+  if (hash === CREATE_PW_HASH) {
+    document.getElementById('create-gate').classList.add('hidden');
+    document.getElementById('create-form').classList.remove('hidden');
+  } else {
+    showMsg('gate-msg', 'Incorrect password.', 'err');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const pollId = params.get('poll');
   if (pollId) {
+    document.querySelector('.tab-bar').style.display = 'none';
     showTab('vote');
     loadPoll(pollId);
   } else {
