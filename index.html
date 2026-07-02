@@ -534,7 +534,7 @@ function showMsg(id, text, type) {
 
 // Init
 // ── Create password ───────────────────────────────────────────────────────
-const CREATE_PW_HASH = 'a6e9b948e89d379311473c1b268331363657483be4c289c4699a55acfbe71c87';
+const CREATE_PW_HASH = '43978627e91ef8d694aeb370a527dacc2eaa69a4f06d49af044b5d4412e62816';
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
