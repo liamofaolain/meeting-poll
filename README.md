@@ -10,6 +10,7 @@ A simple, no-nonsense meeting scheduler built by William Whelan-Curtin. No accou
 - Each participant votes Yes / If necessary / No for each slot
 - Results show totals and highlight the best slot
 - Anyone can export results as a `.csv` spreadsheet at any time
+- The create page is password-protected — participants cannot create polls
 
 ---
 
@@ -83,7 +84,7 @@ The anon key is safe to use in public frontend code. It only allows the operatio
 1. Go to [github.com](https://github.com) and sign in
 2. Click **New repository**
 3. Name it (e.g. `meeting-poll`)
-4. Set it to **Public**
+4. Set it to **Private** (recommended, since `index.html` contains your create password)
 5. Check **Add a README**
 6. Click **Create repository**
 
@@ -96,6 +97,8 @@ The anon key is safe to use in public frontend code. It only allows the operatio
 3. Branch: `main`, folder: `/ (root)`
 4. Click **Save**
 5. Your site will be live at `https://yourusername.github.io/meeting-poll`
+
+Note: GitHub Pages serves the site publicly even if the repo is private. The private repo just means the source code (including the password) is not publicly visible.
 
 ---
 
@@ -118,7 +121,27 @@ When you create a poll you receive two links:
 | **Participant link** — `?poll=abc123` | Share this with everyone |
 | **Organiser link** — `?poll=abc123&org=xyz789` | Keep this private — gives you delete access |
 
-Bookmark your organiser link. If you lose it you can still delete rows directly in the Supabase dashboard under **Table Editor → votes**.
+Participants who follow a poll link see only the voting view. The create page is not accessible from a poll link.
+
+Bookmark your organiser link. If you lose it, you can recover it: take the participant link and append `&org=x` (any value works). You can also find the poll ID directly in Supabase under **Table Editor → polls**.
+
+---
+
+## The create password
+
+The create page is protected by a password so that only the organiser can create polls. The password is stored as a SHA-256 hash in `index.html`:
+
+```javascript
+const CREATE_PW_HASH = 'your-hash-here';
+```
+
+To change the password:
+1. Go to [SHA-256 hash generator](https://emn178.github.io/online-tools/sha256.html)
+2. Type your new password and copy the hash
+3. Replace the hash value in `index.html`
+4. Commit and push — takes about 1 minute to deploy
+
+The password is case-sensitive. Avoid leading or trailing spaces.
 
 ---
 
@@ -139,8 +162,9 @@ To restore a previous version:
 - All data is transmitted over HTTPS
 - The anon key in the source code is intentional and safe — it is designed to be public
 - The `service_role` key (in Supabase Project Settings) must never be put in frontend code
-- Enable two-factor authentication on your GitHub account (Settings → Password and authentication)
+- The create password is stored as a hash in `index.html` — keep the repo private
 - The organiser link contains a secret code in the URL — do not share it with participants
+- Enable two-factor authentication on your GitHub account (Settings → Password and authentication)
 
 ---
 
@@ -156,6 +180,11 @@ All times are stored as UTC. The organiser enters times in their local timezone 
 - Check the browser console (F12 → Console) for errors
 - Confirm the SQL in Step 2 was run successfully in Supabase
 - Try a hard refresh: Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)
+
+**Create password not working**
+- The password is case-sensitive — check for accidental capitalisation or spaces
+- Confirm the hash in `index.html` was generated from exactly the password you are typing
+- Test the hash at [SHA-256 hash generator](https://emn178.github.io/online-tools/sha256.html)
 
 **Vote not saving**
 - Check Supabase Table Editor → votes for the row
