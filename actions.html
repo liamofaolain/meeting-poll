@@ -171,6 +171,9 @@
         <option value="done">Done</option>
         <option value="discontinued">Discontinued</option>
       </select>
+      <select id="filter-owner" onchange="renderTable()">
+        <option value="">All owners</option>
+      </select>
       <select id="sort-by" onchange="renderTable()">
         <option value="id">Sort: ID</option>
         <option value="due_date">Sort: Due date</option>
@@ -519,9 +522,28 @@ async function loadPasswordLabels() {
 }
 
 // ── Table rendering ────────────────────────────────────────────────────────
+function populateOwnerFilter() {
+  const sel = document.getElementById('filter-owner');
+  const current = sel.value;
+  // Owners within the current user's scope
+  let scope = allActions;
+  if (currentRole === 'project') scope = scope.filter(function(a) { return a.project_id === currentProjectId; });
+  const owners = Array.from(new Set(scope.map(function(a) { return (a.owner || '').trim(); }).filter(Boolean))).sort(function(a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+  sel.innerHTML = '<option value="">All owners</option>';
+  owners.forEach(function(o) {
+    const opt = document.createElement('option');
+    opt.value = o; opt.textContent = o;
+    sel.appendChild(opt);
+  });
+  // Preserve selection if it still exists
+  sel.value = owners.indexOf(current) >= 0 ? current : '';
+}
+
 function renderTable() {
+  populateOwnerFilter();
   const filterProject = document.getElementById('filter-project').value;
   const filterStatus = document.getElementById('filter-status').value;
+  const filterOwner = document.getElementById('filter-owner').value;
   const showInactive = document.getElementById('show-inactive').checked;
   const sortBy = document.getElementById('sort-by').value;
   const sortDir = document.getElementById('sort-dir').value;
@@ -532,6 +554,7 @@ function renderTable() {
   if (currentRole === 'project') rows = rows.filter(function(a) { return a.project_id === currentProjectId; });
   if (filterProject) rows = rows.filter(function(a) { return a.project_id === filterProject; });
   if (filterStatus) rows = rows.filter(function(a) { return a.status === filterStatus; });
+  if (filterOwner) rows = rows.filter(function(a) { return (a.owner || '').trim() === filterOwner; });
   if (!showInactive) rows = rows.filter(function(a) { return a.status !== 'done' && a.status !== 'discontinued'; });
   if (search) rows = rows.filter(function(a) {
     const proj = (allProjects.find(function(p) { return p.id === a.project_id; }) || {}).name || '';
